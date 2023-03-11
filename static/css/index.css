@@ -1,0 +1,28 @@
+body{
+    background-color: #ebf6ff;
+}
+.header-img{
+    position: absolute;
+    top: 50%;
+    transform: translate(0,-50%);
+}
+.header-text{
+    display: inline-block;
+    font-size: 24px;
+    color: #ffffff;
+    margin: 0 0 0 34px;
+}
+.mw-75 {
+    max-width: 75%;
+}
+pre code {
+    display: block;
+    margin: 10px 0;
+    padding: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: auto;
+    background-color: #f4f4f4;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
