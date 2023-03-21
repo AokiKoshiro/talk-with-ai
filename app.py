@@ -19,7 +19,8 @@ def reset_messages_and_dir():
     global messages
     messages = []
     reset_dir = "audio"
-    shutil.rmtree(reset_dir)
+    if os.path.isdir(reset_dir) == True:
+        shutil.rmtree(reset_dir)
     os.mkdir(reset_dir)
 
 
