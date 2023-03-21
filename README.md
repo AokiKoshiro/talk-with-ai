@@ -1,2 +1,2 @@
-# talk-with-ai
+# Talk-with-AI
 ![structure](static/image/structure.svg)
