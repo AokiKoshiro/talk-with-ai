@@ -50,17 +50,15 @@ def get_bot_response():
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    # Get the audio data from the POST request
+    language = request.form["language"]
+    if language == "auto":
+        language = None
     audio_file = request.files["audio"]
     audio_data = audio_file.read()
-
-    # Save the audio data to a file
     with open("./audio/user_audio.webm", "wb") as f:
         f.write(audio_data)
-
-    # Transcribe the audio using the Whisper API
     audio_file = open("./audio/user_audio.webm", "rb")
-    transcript = openai.Audio.transcribe("whisper-1", audio_file)
+    transcript = openai.Audio.transcribe("whisper-1", audio_file, language=language)
     transcription_text = transcript["text"]
 
     return transcription_text
