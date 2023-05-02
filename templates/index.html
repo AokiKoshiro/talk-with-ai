@@ -28,12 +28,24 @@
     <div class="container">
         <div id="architecture" class="mb-5">
             <h3>Architecture</h3>
-            <img src="../static/image/architecture.svg" class="rounded w-75 mx-auto d-block">
+            <img src="../static/image/architecture.svg" class="mw-100 mx-auto d-block">
         </div>
         <div id="chatbox" class="mb-5">
             <h3>Let's talk!</h3>
             <div class="row">
-                <div class="col-sm-6">
+                <div class="col-sm-4">
+                    <div class="input-group mb-2">
+                        <label class="input-group-text" for="select-voice">
+                            <i class="bi bi-person-fill"></i>
+                            &ensp;Voice
+                        </label>
+                        <select class="form-select" id="select-voice">
+                            <option value="gtts" selected>gTTS</option>
+                            <option value="zundamon">ずんだもん</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-sm-4">
                     <div class="input-group mb-2">
                         <label class="input-group-text" for="select-language">
                             <i class="bi bi-globe"></i>
@@ -47,16 +59,16 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-sm-6">
+                <div class="col-sm-4">
                     <div class="input-group mb-2">
                         <label class="input-group-text" for="select-rate">
                             <i class="bi bi-speedometer"></i>
                             &ensp;Rate
                         </label>
                         <select class="form-select" id="select-rate">
-                            <option value="0.9">Slow</option>
-                            <option value="1.4" selected>Normal</option>
-                            <option value="2.2">Fast</option>
+                            <option value="0.6">Slow</option>
+                            <option value="1.0" selected>Normal</option>
+                            <option value="1.6">Fast</option>
                         </select>
                     </div>
                 </div>
@@ -68,7 +80,7 @@
             <div id="messages"></div>
             <div id="user-input" class="input-group">
                 <input type="text" id="user-input-text" class="form-control" placeholder="Say something...">
-                <button type="button" id="record-submit-button"
+                <button type="button" id="submit-button"
                     class="input-group-text btn btn-secondary bi bi-mic-fill"></button>
             </div>
         </div>

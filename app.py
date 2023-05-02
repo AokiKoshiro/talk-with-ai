@@ -1,11 +1,12 @@
 import langid
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from gtts import gTTS
 import openai
 import os
 import shutil
 
 app = Flask(__name__)
+openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
 def reset_audio_dir():
@@ -21,9 +22,12 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/api_key", methods=["GET"])
+@app.route("/api_key", methods=["POST"])
 def api_key():
-    return os.environ["OPENAI_API_KEY"]
+    openai_api_key = os.environ["OPENAI_API_KEY"]
+    voicevox_api_keys = os.environ["VOICEVOX_API_KEY"].split(",") # get from this page: https://voicevox.su-shiki.com/su-shikiapis/
+    api_key_dict = {"openai": openai_api_key, "voicevox": voicevox_api_keys}
+    return jsonify(api_key_dict)
 
 
 @app.route("/transcribe", methods=["POST"])
