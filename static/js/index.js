@@ -7,23 +7,31 @@ $(function () {
     const $selectLanguage = $('#select-language');
     const $selectRate = $('#select-rate');
 
-    function playAudio(assistantAudio, responseId) {
-        const assistantAudioList = assistantAudioDict[responseId] || [];
-        assistantAudioList.push(assistantAudio);
-        assistantAudioDict[responseId] = assistantAudioList;
+    let messageHistory = [];
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let audioQueue = [];
+    let apiKeys = {};
+    let openaiApiKey = '';
+    let voicevoxApiKeys = [];
+    const maxMessages = 10;
+    const recodingTimeLimit = 3600000; // 1 hour
 
-        const playAudioAtIndex = (index) => {
-            if (index >= assistantAudioList.length) {
-                return;
+    function playNextAudio() {
+        const audio = audioQueue[0];
+        audio.addEventListener('ended', () => {
+            audioQueue.shift();
+            if (audioQueue.length > 0) {
+                playNextAudio();
             }
-            assistantAudioList[index].play();
-            assistantAudioList[index].addEventListener('ended', () => {
-                playAudioAtIndex(index + 1);
-            });
-        };
+        });
+        audio.play();
+    }
 
-        if (assistantAudioList.length === 1) {
-            playAudioAtIndex(0);
+    function playAudio(audio) {
+        audioQueue.push(audio);
+        if (audioQueue.length === 1) {
+            playNextAudio();
         }
     }
 
@@ -39,23 +47,24 @@ $(function () {
                         'sentenceId': sentenceId,
                     },
                     success: () => {
-                        const audio = new Audio(`../../audio/assistant_audio_${sentenceId}.mp3`);
+                        const audio = new Audio(`../../audio/assistant-audio-${sentenceId}.mp3`);
                         audio.playbackRate = $selectRate.val() * 1.5;
-                        playAudio(audio, responseId);
+                        playAudio(audio);
                     },
                 });
                 break;
 
             case 'zundamon':
                 const rate = $selectRate.val() * 1.2;
-                let audioLoaded = false;
                 for (const voicevoxApiKey of voicevoxApiKeys) {
-                    if (audioLoaded) break;
-                    const audio = new Audio(`https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${voicevoxApiKey}&speaker=3&speed=${rate}&text=${assistantSentence}`);
-                    audio.addEventListener('canplaythrough', () => {
-                        audioLoaded = true;
+                    try {
+                        const encodedAssistantSentence = encodeURIComponent(assistantSentence);
+                        const audio = new Audio(`https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${voicevoxApiKey}&speaker=3&speed=${rate}&text=${encodedAssistantSentence}`);
                         playAudio(audio);
-                    });
+                        break;
+                    } catch (error) {
+                        continue;
+                    }
                 }
                 break;
 
@@ -84,10 +93,12 @@ $(function () {
         let assistantMessage = '';
         let assistantSentence = '';
         let sentenceCount = 0;
+        let jsonData = {};
+        let responseId = '';
 
         const reader = response.body.getReader();
         const textDecoder = new TextDecoder();
-        const punctuation = ['.', '?', '!', '…', ' ', '。', '？', '！', '　'];
+        const punctuation = ['.', '?', '!', '…', '。', '？', '！', '　'];
 
         while (true) {
             const { value, done } = await reader.read();
@@ -103,22 +114,22 @@ $(function () {
                 const trimmedLine = line.trim();
 
                 if (trimmedLine.startsWith('data:')) {
-                    const jsonData = JSON.parse(trimmedLine.slice(5));
-                    const responseId = jsonData.id;
-
                     if (trimmedLine.includes('[DONE]')) {
                         if (assistantSentence !== '') {
                             tts(assistantSentence, responseId, sentenceCount);
                         }
-                        assistantAudioDict = {};
                         return assistantMessage;
                     }
+
+                    jsonData = JSON.parse(trimmedLine.slice(5));
+                    responseId = jsonData.id;
 
                     if (jsonData.choices?.[0]?.delta?.content) {
                         const assistantToken = jsonData.choices[0].delta.content;
                         assistantMessage += assistantToken;
                         assistantSentence += assistantToken;
-                        if (punctuation.includes(assistantToken.slice(-1)) && assistantSentence.length >= 5) {
+                        const lastChar = assistantToken.slice(-1);
+                        if (punctuation.includes(lastChar) && assistantSentence.length >= 5) {
                             tts(assistantSentence, responseId, sentenceCount);
                             assistantSentence = '';
                             sentenceCount++;
@@ -154,50 +165,64 @@ $(function () {
         }
     }
 
+    function startRecording() {
+        $submitButton.removeClass('bi-mic-fill btn-secondary').addClass('bi-stop-circle btn-danger');
+        audioChunks = [];
+        setTimeout(() => {
+            if (mediaRecorder.state === 'recording') {
+                audioChunks = [];
+                mediaRecorder.stop();
+            }
+        }, recodingTimeLimit);
+    }
+
+    function stopRecording() {
+        $submitButton.removeClass('bi-stop-circle btn-danger').addClass('bi-mic-fill btn-secondary');
+        $messages.append(`
+            <div id="processing" class="d-flex flex-row-reverse">
+                <div class="rounded mw-75 mb-2 p-2 text-white bg-primary">
+                    <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                    processing...
+                </div>
+            </div>
+        `);
+        $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+        const language = $selectLanguage.val();
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob, 'audio.webm');
+        formData.append('language', language);
+        $.ajax({
+            url: '/transcribe',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: transcript => {
+                if (transcript === '') {
+                    $('#processing').remove();
+                    $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+                } else {
+                    getAssitantMessage(transcript);
+                }
+            }
+        });
+    }
+
     function handleMediaStream(stream) {
         mediaRecorder = new MediaRecorder(stream);
-        let audioChunks = [];
-
+        audioChunks = [];
         mediaRecorder.addEventListener('dataavailable', event => {
             audioChunks.push(event.data);
         });
+        mediaRecorder.addEventListener('start', startRecording);
+        mediaRecorder.addEventListener('stop', stopRecording);
+    }
 
-        mediaRecorder.addEventListener('start', () => {
-            $submitButton.removeClass('bi-mic-fill btn-secondary').addClass('bi-stop-circle btn-danger');
-            audioChunks = [];
-            setTimeout(() => {
-                if (mediaRecorder.state === 'recording') {
-                    mediaRecorder.stop();
-                }
-            }, recodingTimeLimit);
-        });
-
-        mediaRecorder.addEventListener('stop', () => {
-            $submitButton.removeClass('bi-stop-circle btn-danger').addClass('bi-mic-fill btn-secondary');
-            $messages.append(`
-                <div id="processing" class="d-flex flex-row-reverse">
-                    <div class="rounded mw-75 mb-2 p-2 text-white bg-primary">
-                        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
-                        processing...
-                    </div>
-                </div>
-            `);
-            $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
-            const language = $selectLanguage.val();
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('audio', blob, 'audio.webm');
-            formData.append('language', language);
-            $.ajax({
-                url: '/transcribe',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: transcript => {
-                    getAssitantMessage(transcript);
-                }
-            });
+    function pauseAssistantAudio() {
+        audioQueue.forEach(audio => {
+            audio.pause();
+            audioQueue = [];
         });
     }
 
@@ -219,12 +244,6 @@ $(function () {
             $userInputText.focus();
             $submitButton.removeClass('bi-mic-fill').addClass('bi-send');
         }
-    }
-
-    function pauseAssistantAudio() {
-        Object.values(assistantAudioDict).flat().forEach(audio => {
-            audio.pause();
-        });
     }
 
     function main() {
@@ -266,7 +285,7 @@ $(function () {
 
         $resetButton.click(() => {
             messageHistory = [];
-            assistantAudioDict = {};
+            audioQueue = [];
             if (mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
             }
@@ -281,15 +300,6 @@ $(function () {
             });
         });
     }
-
-    let messageHistory = [];
-    let mediaRecorder = null;
-    let assistantAudioDict = {};
-    let apiKeys = {};
-    let openaiApiKey = '';
-    let voicevoxApiKeys = [];
-    const maxMessages = 10;
-    const recodingTimeLimit = 30000;
 
     $.ajax({
         type: 'POST',

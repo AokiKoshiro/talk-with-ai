@@ -51,7 +51,7 @@ def gtts():
     sentence_id = request.args.get("sentenceId")
     language = langid.classify(assitant_sentence)[0]
     tts = gTTS(text=assitant_sentence, lang=language)
-    tts.save(f"./audio/assistant_audio_{sentence_id}.mp3")
+    tts.save(f"./audio/assistant-audio-{sentence_id}.mp3")
     return "success"
 
 
