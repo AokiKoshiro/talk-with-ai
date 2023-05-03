@@ -1,12 +1,10 @@
 import langid
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from gtts import gTTS
-import openai
 import os
 import shutil
 
 app = Flask(__name__)
-openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
 def reset_audio_dir():
@@ -28,21 +26,6 @@ def api_key():
     voicevox_api_keys = os.environ["VOICEVOX_API_KEY"].split(",") # get from this page: https://voicevox.su-shiki.com/su-shikiapis/
     api_key_dict = {"openai": openai_api_key, "voicevox": voicevox_api_keys}
     return jsonify(api_key_dict)
-
-
-@app.route("/transcribe", methods=["POST"])
-def transcribe():
-    language = request.form["language"]
-    if language == "auto":
-        language = None
-    audio_file = request.files["audio"]
-    audio_data = audio_file.read()
-    with open("./audio/user_audio.webm", "wb") as f:
-        f.write(audio_data)
-    audio_file = open("./audio/user_audio.webm", "rb")
-    transcript = openai.Audio.transcribe("whisper-1", audio_file, language=language)
-    transcription_text = transcript["text"]
-    return transcription_text
 
 
 @app.route("/gtts")

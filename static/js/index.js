@@ -188,23 +188,24 @@ $(function () {
         `);
         $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
         const language = $selectLanguage.val();
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob, 'audio.webm');
-        formData.append('language', language);
-        $.ajax({
-            url: '/transcribe',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: transcript => {
-                if (transcript === '') {
-                    $('#processing').remove();
-                    $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
-                } else {
-                    getAssitantMessage(transcript);
-                }
+        const file = new File(audioChunks, 'audio.wav', { type: 'audio/wav' });
+        const XHR = new XMLHttpRequest();
+        XHR.open("POST", "https://api.openai.com/v1/audio/transcriptions");
+        XHR.setRequestHeader("Authorization", "Bearer " + openaiApiKey);
+        var formData = new FormData();
+        formData.append("file", file);
+        formData.append("model", "whisper-1");
+        if (language !== 'auto') {
+            formData.append("language", language);
+        }
+        XHR.send(formData);
+        XHR.addEventListener("load", (event) => {
+            transcript = JSON.parse(event.target.responseText).text;
+            if (transcript === '') {
+                $('#processing').remove();
+                $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+            } else {
+                getAssitantMessage(transcript);
             }
         });
     }
