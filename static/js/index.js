@@ -1,15 +1,19 @@
 $(function () {
     const $submitButton = $('#submit-button');
     const $messages = $('#messages');
+    const $footer = $('#footer');
     const $userInputText = $('#user-input-text');
     const $resetButton = $('#reset-button');
     const $selectVoice = $('#select-voice');
     const $selectLanguage = $('#select-language');
     const $selectRate = $('#select-rate');
+    const $switchContinuous = $('#switch-continuous');
 
-    let messageHistory = [];
-    let mediaRecorder = null;
+    let recorder;
+    let isRecording = false;
+    let canPlayAudio = true;
     let audioChunks = [];
+    let messageHistory = [];
     let audioQueue = [];
     let apiKeys = {};
     let openaiApiKey = '';
@@ -75,7 +79,6 @@ $(function () {
 
     function renderUserMessage(userInput) {
         $('#processing').remove();
-        $resetButton.show();
         $messages.append(`
             <div class="d-flex flex-row-reverse">
                 <div class="rounded mw-75 mb-2 p-2 text-white bg-primary">${userInput}</div>
@@ -100,6 +103,8 @@ $(function () {
         const textDecoder = new TextDecoder();
         const punctuation = ['.', '?', '!', '…', '。', '？', '！', '　'];
 
+        canPlayAudio = true;
+
         while (true) {
             const { value, done } = await reader.read();
 
@@ -113,7 +118,7 @@ $(function () {
             for (const line of lines) {
                 const trimmedLine = line.trim();
 
-                if (trimmedLine.startsWith('data:')) {
+                if (trimmedLine.startsWith('data:') && canPlayAudio) {
                     if (trimmedLine.includes('[DONE]')) {
                         if (assistantSentence !== '') {
                             tts(assistantSentence, responseId, sentenceCount);
@@ -165,19 +170,20 @@ $(function () {
         }
     }
 
-    function startRecording() {
-        $submitButton.removeClass('bi-mic-fill btn-secondary').addClass('bi-stop-circle btn-danger');
+    function onSpeechStart() {
         audioChunks = [];
+        pauseAssistantAudio();
+        $submitButton.removeClass('btn-primary').addClass('btn-danger');
         setTimeout(() => {
-            if (mediaRecorder.state === 'recording') {
+            if (isRecording) {
                 audioChunks = [];
-                mediaRecorder.stop();
+                stopRecording();
             }
         }, recodingTimeLimit);
     }
 
-    function stopRecording() {
-        $submitButton.removeClass('bi-stop-circle btn-danger').addClass('bi-mic-fill btn-secondary');
+    function onSpeechEnd(file) {
+        $submitButton.removeClass('btn-danger').addClass('btn-primary');
         $messages.append(`
             <div id="processing" class="d-flex flex-row-reverse">
                 <div class="rounded mw-75 mb-2 p-2 text-white bg-primary">
@@ -188,7 +194,7 @@ $(function () {
         `);
         $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
         const language = $selectLanguage.val();
-        const file = new File(audioChunks, 'audio.wav', { type: 'audio/wav' });
+        // const file = new File(audioChunks, 'audio.wav', { type: 'audio/wav' });
         const XHR = new XMLHttpRequest();
         XHR.open("POST", "https://api.openai.com/v1/audio/transcriptions");
         XHR.setRequestHeader("Authorization", "Bearer " + openaiApiKey);
@@ -210,29 +216,65 @@ $(function () {
         });
     }
 
-    function handleMediaStream(stream) {
-        mediaRecorder = new MediaRecorder(stream);
+    async function initVADRecorder() {
+        recorder = await vad.MicVAD.new({
+            onSpeechStart: () => {
+                onSpeechStart();
+            },
+            onSpeechEnd: (arr) => {
+                const wavBuffer = vad.utils.encodeWAV(arr);
+                const file = new File([wavBuffer], `audio.wav`);
+                onSpeechEnd(file);
+            },
+        });
+    };
+
+    async function initRecorder() {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        recorder = new MediaRecorder(stream);
         audioChunks = [];
-        mediaRecorder.addEventListener('dataavailable', event => {
+        recorder.addEventListener('dataavailable', event => {
             audioChunks.push(event.data);
         });
-        mediaRecorder.addEventListener('start', startRecording);
-        mediaRecorder.addEventListener('stop', stopRecording);
+        recorder.addEventListener('start', () => {
+            onSpeechStart();
+        });
+        recorder.addEventListener('stop', () => {
+            const file = new File(audioChunks, 'audio.wav', { type: 'audio/wav' });
+            onSpeechEnd(file);
+        });
     }
 
     function pauseAssistantAudio() {
+        canPlayAudio = false;
         audioQueue.forEach(audio => {
             audio.pause();
             audioQueue = [];
         });
     }
 
-    function toggleRecording() {
+    function startRecording() {
         pauseAssistantAudio();
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
+        recorder.start();
+        $submitButton.removeClass('bi-mic-fill btn-secondary').addClass('bi-stop-circle btn-primary');
+    }
+
+    function stopRecording() {
+        if ($switchContinuous.is(':checked')) {
+            recorder.pause();
         } else {
-            mediaRecorder.start();
+            recorder.stop();
+        }
+        $submitButton.removeClass('bi-stop-circle btn-danger').addClass('bi-mic-fill btn-secondary');
+    }
+
+    function toggleRecording() {
+        if (isRecording) {
+            stopRecording();
+            isRecording = false;
+        } else {
+            startRecording();
+            isRecording = true;
         }
     }
 
@@ -247,9 +289,25 @@ $(function () {
         }
     }
 
+    function setMargin() {
+        const footerHeight = $footer.height();
+        const fontSize = getComputedStyle(document.documentElement).fontSize;
+        const margin = parseFloat(fontSize);
+        console.log("height: " + margin);
+        $messages.css("margin-bottom", footerHeight + margin + "px");
+    }
+
     function main() {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            handleMediaStream(stream);
+        setMargin();
+
+        initVADRecorder();
+
+        $switchContinuous.on('change', () => {
+            if ($switchContinuous.is(':checked')) {
+                initVADRecorder();
+            } else {
+                initRecorder();
+            }
         });
 
         $submitButton.mousedown(() => {
@@ -263,6 +321,7 @@ $(function () {
 
         $(document).keypress(event => {
             if (event.which === 32 && !$userInputText.is(':focus')) {
+                event.stopImmediatePropagation();
                 toggleRecording();
             }
         });
@@ -287,8 +346,8 @@ $(function () {
         $resetButton.click(() => {
             messageHistory = [];
             audioQueue = [];
-            if (mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
+            if (isRecording) {
+                stopRecording();
             }
             pauseAssistantAudio();
             $.ajax({
@@ -296,7 +355,6 @@ $(function () {
                 url: '/reset',
                 success: () => {
                     $messages.empty();
-                    $resetButton.hide();
                 }
             });
         });
