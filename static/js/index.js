@@ -9,17 +9,19 @@ $(function () {
     const $selectRate = $('#select-rate');
     const $switchContinuous = $('#switch-continuous');
 
+    const maxConversationTrun = 1;
+    const recodingTimeLimit = 3600000; // 1 hour
+    const endSign = '@e$n#d';
+    const systemMessage = { 'role': 'system', 'content': `On receiving a "end conversation" message, reply "Goodbye! ${endSign}"` }
     let recorder;
     let isRecording = false;
     let canPlayAudio = true;
     let audioChunks = [];
-    let messageHistory = [];
+    let messageHistory = [systemMessage];
     let audioQueue = [];
     let apiKeys = {};
     let openaiApiKey = '';
     let voicevoxApiKeys = [];
-    const maxMessages = 10;
-    const recodingTimeLimit = 3600000; // 1 hour
 
     function playNextAudio() {
         const audio = audioQueue[0];
@@ -44,7 +46,7 @@ $(function () {
             case 'gtts':
                 const sentenceId = responseId + '-' + sentenceCount;
                 $.ajax({
-                    type: 'GET',
+                    type: 'POST',
                     url: '/gtts',
                     data: {
                         'assistantSentence': assistantSentence,
@@ -86,7 +88,10 @@ $(function () {
         `);
         $messages.append(`
             <div class="d-flex flex-row">
-                <div class="assistant-message rounded mw-75 mb-2 p-2 pb-0 bg-white"></div>
+                <div class="assistant-message rounded mw-75 mb-2 p-2 pb-0 bg-white">
+                    <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                    thinking...
+                </div>
             </div>
         `);
         $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
@@ -96,6 +101,7 @@ $(function () {
         let assistantMessage = '';
         let assistantSentence = '';
         let sentenceCount = 0;
+        let matchCount = 0;
         let jsonData = {};
         let responseId = '';
 
@@ -104,6 +110,7 @@ $(function () {
         const punctuation = ['.', '?', '!', '…', '。', '？', '！', '　'];
 
         canPlayAudio = true;
+        $('#thinking').remove();
 
         while (true) {
             const { value, done } = await reader.read();
@@ -139,8 +146,22 @@ $(function () {
                             assistantSentence = '';
                             sentenceCount++;
                         }
-                        $('.assistant-message').last().html(marked.parse(assistantMessage));
-                        $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+                        for (let i = matchCount + 1; i <= endSign.length; i++) {
+                            if (assistantMessage.endsWith(endSign.slice(0, i))) {
+                                matchCount = i;
+                                break;
+                            }
+                            if (i === endSign.length) {
+                                matchCount = 0;
+                            }
+                        }
+                        if (matchCount === endSign.length) {
+                            resetConversation();
+                        }
+                        if (matchCount === 0) {
+                            $('.assistant-message').last().html(marked.parse(assistantMessage));
+                            $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+                        }
                     }
                 }
             }
@@ -165,8 +186,8 @@ $(function () {
         });
         const assistantMessage = await processResponse(response);
         messageHistory.push({ 'role': 'assistant', 'content': assistantMessage });
-        if (messageHistory.length > 2 * maxMessages) {
-            messageHistory = messageHistory.slice(-maxMessages * 2);
+        if (messageHistory.length > maxConversationTrun * 2 + 1) {
+            messageHistory.splice(1, 2);
         }
     }
 
@@ -194,7 +215,6 @@ $(function () {
         `);
         $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
         const language = $selectLanguage.val();
-        // const file = new File(audioChunks, 'audio.wav', { type: 'audio/wav' });
         const XHR = new XMLHttpRequest();
         XHR.open("POST", "https://api.openai.com/v1/audio/transcriptions");
         XHR.setRequestHeader("Authorization", "Bearer " + openaiApiKey);
@@ -254,12 +274,14 @@ $(function () {
     }
 
     function startRecording() {
+        isRecording = true;
         pauseAssistantAudio();
         recorder.start();
         $submitButton.removeClass('bi-mic-fill btn-secondary').addClass('bi-stop-circle btn-primary');
     }
 
     function stopRecording() {
+        isRecording = false;
         if ($switchContinuous.is(':checked')) {
             recorder.pause();
         } else {
@@ -271,10 +293,8 @@ $(function () {
     function toggleRecording() {
         if (isRecording) {
             stopRecording();
-            isRecording = false;
         } else {
             startRecording();
-            isRecording = true;
         }
     }
 
@@ -289,11 +309,26 @@ $(function () {
         }
     }
 
+    function resetConversation() {
+        messageHistory = [systemMessage];
+        audioQueue = [];
+        if (isRecording) {
+            stopRecording();
+        }
+        pauseAssistantAudio();
+        $.ajax({
+            type: 'GET',
+            url: '/reset',
+            success: () => {
+                $messages.empty();
+            }
+        });
+    }
+
     function setMargin() {
         const footerHeight = $footer.height();
         const fontSize = getComputedStyle(document.documentElement).fontSize;
         const margin = parseFloat(fontSize);
-        console.log("height: " + margin);
         $messages.css("margin-bottom", footerHeight + margin + "px");
     }
 
@@ -344,19 +379,7 @@ $(function () {
         });
 
         $resetButton.click(() => {
-            messageHistory = [];
-            audioQueue = [];
-            if (isRecording) {
-                stopRecording();
-            }
-            pauseAssistantAudio();
-            $.ajax({
-                type: 'GET',
-                url: '/reset',
-                success: () => {
-                    $messages.empty();
-                }
-            });
+            resetConversation();
         });
     }
 

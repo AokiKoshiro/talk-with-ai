@@ -28,10 +28,10 @@ def api_key():
     return jsonify(api_key_dict)
 
 
-@app.route("/gtts")
+@app.route("/gtts", methods=["POST"])
 def gtts():
-    assitant_sentence = request.args.get("assistantSentence")
-    sentence_id = request.args.get("sentenceId")
+    assitant_sentence = request.form["assistantSentence"]
+    sentence_id = request.form["sentenceId"]
     language = langid.classify(assitant_sentence)[0]
     tts = gTTS(text=assitant_sentence, lang=language)
     tts.save(f"./audio/assistant-audio-{sentence_id}.mp3")
