@@ -9,13 +9,14 @@ $(function () {
     const $selectRate = $('#select-rate');
     const $switchContinuous = $('#switch-continuous');
 
-    const maxConversationTrun = 1;
+    const maxChatTrun = 10;
     const recodingTimeLimit = 3600000; // 1 hour
     const endSign = '@e$n#d';
     const systemMessage = { 'role': 'system', 'content': `On receiving a "end conversation" message, reply "Goodbye! ${endSign}"` }
     let recorder;
     let isRecording = false;
     let canPlayAudio = true;
+    let canAutoScroll = true;
     let audioChunks = [];
     let messageHistory = [systemMessage];
     let audioQueue = [];
@@ -79,6 +80,13 @@ $(function () {
         }
     }
 
+    function scrollToBottom() {
+        if (canAutoScroll) {
+            const bottom = $(document).height() - $(window).height();
+            window.scroll(0, bottom);
+        }
+    }
+
     function renderUserMessage(userInput) {
         $('#processing').remove();
         $messages.append(`
@@ -94,7 +102,7 @@ $(function () {
                 </div>
             </div>
         `);
-        $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+        scrollToBottom();
     }
 
     async function processResponse(response) {
@@ -107,7 +115,7 @@ $(function () {
 
         const reader = response.body.getReader();
         const textDecoder = new TextDecoder();
-        const punctuation = ['.', '?', '!', '…', '。', '？', '！', '　'];
+        const punctuation = ['.', '?', '!', '…', '- ', '# ', '。', '？', '！', '• ', '・ ', '　'];
 
         canPlayAudio = true;
         $('#thinking').remove();
@@ -156,11 +164,11 @@ $(function () {
                             }
                         }
                         if (matchCount === endSign.length) {
-                            resetConversation();
+                            resetChat();
                         }
                         if (matchCount === 0) {
                             $('.assistant-message').last().html(marked.parse(assistantMessage));
-                            $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+                            scrollToBottom();
                         }
                     }
                 }
@@ -186,7 +194,7 @@ $(function () {
         });
         const assistantMessage = await processResponse(response);
         messageHistory.push({ 'role': 'assistant', 'content': assistantMessage });
-        if (messageHistory.length > maxConversationTrun * 2 + 1) {
+        if (messageHistory.length > maxChatTrun * 2 + 1) {
             messageHistory.splice(1, 2);
         }
     }
@@ -213,7 +221,7 @@ $(function () {
                 </div>
             </div>
         `);
-        $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+        scrollToBottom();
         const language = $selectLanguage.val();
         const XHR = new XMLHttpRequest();
         XHR.open("POST", "https://api.openai.com/v1/audio/transcriptions");
@@ -229,7 +237,7 @@ $(function () {
             transcript = JSON.parse(event.target.responseText).text;
             if (transcript === '') {
                 $('#processing').remove();
-                $('html, body').animate({ scrollTop: $('body').get(0).scrollHeight }, 100);
+                scrollToBottom();
             } else {
                 getAssitantMessage(transcript);
             }
@@ -309,7 +317,7 @@ $(function () {
         }
     }
 
-    function resetConversation() {
+    function resetChat() {
         messageHistory = [systemMessage];
         audioQueue = [];
         if (isRecording) {
@@ -336,6 +344,20 @@ $(function () {
         setMargin();
 
         initVADRecorder();
+
+        let scroll = 0;
+        $(window).scroll(() => {
+            if ($(this).scrollTop() < scroll) {
+                canAutoScroll = false;
+            } else {
+                const distanceFromBottom = $(document).height() - $(window).height() - $(window).scrollTop();
+                if (distanceFromBottom < 50) {
+                    canAutoScroll = true;
+                }
+            }
+            scroll = $(this).scrollTop();
+        });
+
 
         $switchContinuous.on('change', () => {
             if ($switchContinuous.is(':checked')) {
@@ -379,7 +401,7 @@ $(function () {
         });
 
         $resetButton.click(() => {
-            resetConversation();
+            resetChat();
         });
     }
 

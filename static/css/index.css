@@ -1,20 +1,28 @@
-body{
+body {
     background-color: #ebf6ff;
 }
-.header-img{
+
+.header-img {
     position: absolute;
     top: 50%;
-    transform: translate(0,-50%);
+    transform: translate(0, -50%);
 }
-.header-text{
+
+.header-text {
     display: inline-block;
     font-size: 24px;
     color: #ffffff;
     margin: 0 0 0 34px;
 }
+
+#footer {
+    background: linear-gradient(transparent, #ebf6ff);
+}
+
 .mw-75 {
     max-width: 75%;
 }
+
 pre code {
     display: block;
     margin: 10px 0;

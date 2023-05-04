@@ -23,7 +23,8 @@ def home():
 @app.route("/api_key", methods=["POST"])
 def api_key():
     openai_api_key = os.environ["OPENAI_API_KEY"]
-    voicevox_api_keys = os.environ["VOICEVOX_API_KEY"].split(",") # get from this page: https://voicevox.su-shiki.com/su-shikiapis/
+    voicevox_api_keys = os.environ["VOICEVOX_API_KEY"].split(",")
+    # get from this page: https://voicevox.su-shiki.com/su-shikiapis/
     api_key_dict = {"openai": openai_api_key, "voicevox": voicevox_api_keys}
     return jsonify(api_key_dict)
 
@@ -46,7 +47,7 @@ def audio(filename):
 @app.route("/reset")
 def reset():
     reset_audio_dir()
-    return "Conversation history has been reset."
+    return "Chat history has been reset."
 
 
 if __name__ == "__main__":
