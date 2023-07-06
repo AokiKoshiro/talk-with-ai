@@ -12,7 +12,10 @@ $(function () {
     const maxChatTrun = 10;
     const recodingTimeLimit = 3600000; // 1 hour
     const endSign = '@e$n#d';
-    const systemMessage = { 'role': 'system', 'content': `On receiving a "end conversation" message, reply "Goodbye! ${endSign}"` }
+    const systemMessage = {
+        'role': 'system', 
+        'content': `IMPORTANT: Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. And on receiving a "end conversation" message, reply "Goodbye! ${endSign} Goodbye! ${endSign}"`
+    };
     let recorder;
     let isRecording = false;
     let canPlayAudio = true;
@@ -24,21 +27,23 @@ $(function () {
     let openaiApiKey = '';
     let voicevoxApiKeys = [];
 
-    function playNextAudio() {
+    async function playNextAudio() {
         const audio = audioQueue[0];
-        audio.addEventListener('ended', () => {
-            audioQueue.shift();
-            if (audioQueue.length > 0) {
-                playNextAudio();
-            }
+        return new Promise((resolve) => {
+            audio.onended = () => {
+                audioQueue.shift();
+                resolve();
+            };
+            audio.play();
         });
-        audio.play();
     }
 
-    function playAudio(audio) {
+    async function playAudio(audio) {
         audioQueue.push(audio);
         if (audioQueue.length === 1) {
-            playNextAudio();
+            do {
+                await playNextAudio();
+            } while (audioQueue.length > 0);
         }
     }
 
@@ -123,7 +128,7 @@ $(function () {
         while (true) {
             const { value, done } = await reader.read();
 
-            if (done) {
+            if (done || !canPlayAudio) {
                 return assistantMessage;
             }
 
@@ -133,7 +138,7 @@ $(function () {
             for (const line of lines) {
                 const trimmedLine = line.trim();
 
-                if (trimmedLine.startsWith('data:') && canPlayAudio) {
+                if (trimmedLine.startsWith('data:')) {
                     if (trimmedLine.includes('[DONE]')) {
                         if (assistantSentence !== '') {
                             tts(assistantSentence, responseId, sentenceCount);
@@ -254,6 +259,7 @@ $(function () {
                 const file = new File([wavBuffer], `audio.wav`);
                 onSpeechEnd(file);
             },
+            positiveSpeechThreshold: 0.8,
         });
     };
 
@@ -324,12 +330,10 @@ $(function () {
             stopRecording();
         }
         pauseAssistantAudio();
+        $messages.empty();
         $.ajax({
             type: 'GET',
             url: '/reset',
-            success: () => {
-                $messages.empty();
-            }
         });
     }
 
