@@ -14,8 +14,8 @@ $(function () {
     const recodingTimeLimit = 3600000; // 1 hour
     const endSign = '@e$n#d';
     const systemMessage = {
-        'role': 'system', 
-        'content': `IMPORTANT: Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. And on receiving a "end conversation" message, reply "Goodbye! ${endSign} Goodbye! ${endSign}"`
+        'role': 'system',
+        'content': `IMPORTANT: 1. Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. 2. If you receive a conversation-ending message like 'goodbye' or 'see you', say "Goodbye! ${endSign} Goodbye! ${endSign}" in user's language.`
     };
     let recorder;
     let isRecording = false;
@@ -23,35 +23,31 @@ $(function () {
     let canAutoScroll = true;
     let audioChunks = [];
     let messageHistory = [systemMessage];
-    let audioQueue = [];
+    let audioQueue = {};
     let apiKeys = {};
     let openaiApiKey = '';
     let voicevoxApiKeys = [];
-
-    async function playNextAudio() {
-        const audio = audioQueue[0];
-        return new Promise((resolve) => {
-            audio.onended = () => {
-                audioQueue.shift();
-                resolve();
-            };
-            audio.play();
-        });
+    
+    function getHeadAudio() {
+        return audioQueue[Object.keys(audioQueue)[0]];
     }
-
-    async function playAudio(audio) {
-        audioQueue.push(audio);
-        if (audioQueue.length === 1) {
-            do {
-                await playNextAudio();
-            } while (audioQueue.length > 0);
+    
+    function playAudio() {
+        if (getHeadAudio().paused) {
+            getHeadAudio().play();
+        }
+        getHeadAudio().onended = () => {
+            delete audioQueue[Object.keys(audioQueue)[0]];
+            getHeadAudio().play();
         }
     }
 
     function tts(assistantSentence, responseId, sentenceCount) {
+        assistantSentence = assistantSentence.split(endSign).join('');
         switch ($selectVoice.val()) {
             case 'gtts':
                 const sentenceId = responseId + '-' + sentenceCount;
+                audioQueue[sentenceId] = new Audio();
                 $.ajax({
                     type: 'POST',
                     url: '/gtts',
@@ -60,20 +56,21 @@ $(function () {
                         'sentenceId': sentenceId,
                     },
                     success: () => {
-                        const audio = new Audio(`../../audio/assistant-audio-${sentenceId}.mp3`);
-                        audio.playbackRate = $selectRate.val() * 1.5;
-                        playAudio(audio);
+                        audioQueue[sentenceId] = new Audio(`../../audio/assistant-audio-${sentenceId}.mp3`);
+                        audioQueue[sentenceId].playbackRate = $selectRate.val() * 1.4;
+                        playAudio();
                     },
                 });
                 break;
 
             case 'zundamon':
                 const rate = $selectRate.val() * 1.2;
+                audioQueue[sentenceId] = new Audio();
                 for (const voicevoxApiKey of voicevoxApiKeys) {
                     try {
                         const encodedAssistantSentence = encodeURIComponent(assistantSentence);
-                        const audio = new Audio(`https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${voicevoxApiKey}&speaker=3&speed=${rate}&text=${encodedAssistantSentence}`);
-                        playAudio(audio);
+                        audioQueue[sentenceId] = new Audio(`https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${voicevoxApiKey}&speaker=3&speed=${rate}&text=${encodedAssistantSentence}`);
+                        playAudio();
                         break;
                     } catch (error) {
                         continue;
@@ -281,11 +278,10 @@ $(function () {
     }
 
     function pauseAssistantAudio() {
-        canPlayAudio = false;
-        audioQueue.forEach(audio => {
+        for (const audio of Object.values(audioQueue)) {
             audio.pause();
-            audioQueue = [];
-        });
+        }
+        audioQueue = {};
     }
 
     function startRecording() {
@@ -326,7 +322,6 @@ $(function () {
 
     function resetChat() {
         messageHistory = [systemMessage];
-        audioQueue = [];
         if (isRecording) {
             stopRecording();
         }
