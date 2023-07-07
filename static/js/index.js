@@ -7,6 +7,7 @@ $(function () {
     const $selectVoice = $('#select-voice');
     const $selectLanguage = $('#select-language');
     const $selectRate = $('#select-rate');
+    const $selectModel = $('#select-model');
     const $switchContinuous = $('#switch-continuous');
 
     const maxChatTrun = 10;
@@ -192,7 +193,7 @@ $(function () {
                 'Authorization': 'Bearer ' + openaiApiKey,
             },
             body: JSON.stringify({
-                'model': 'gpt-3.5-turbo',
+                'model': $selectModel.val(),
                 'stream': true,
                 'messages': messageHistory,
             }),
