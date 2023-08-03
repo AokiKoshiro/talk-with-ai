@@ -15,7 +15,7 @@ $(function () {
     const endSign = '@e$n#d';
     const systemMessage = {
         'role': 'system',
-        'content': `IMPORTANT: 1. Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. 2. If you receive a conversation-ending message like 'goodbye' or 'see you', say "Goodbye! ${endSign} Goodbye! ${endSign}" in user's language.`
+        'content': `IMPORTANT: 1. Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. 2. Only if you receive a conversation-ending message like 'goodbye' or 'see you', say "Goodbye! ${endSign} Goodbye! ${endSign}" in user's language.`
     };
     let recorder;
     let isRecording = false;
@@ -28,26 +28,27 @@ $(function () {
     let openaiApiKey = '';
     let voicevoxApiKeys = [];
     
-    function getHeadAudio() {
-        return audioQueue[Object.keys(audioQueue)[0]];
+
+    function playAudio() {
+        const headAudio = audioQueue[Object.keys(audioQueue)[0]];
+        if (!headAudio) {
+            return;
+        }
+        if (headAudio.paused) {
+            headAudio.play();
+        }
+        headAudio.onended = () => {
+            delete audioQueue[Object.keys(audioQueue)[0]];
+            playAudio();
+        };
     }
     
-    function playAudio() {
-        if (getHeadAudio().paused) {
-            getHeadAudio().play();
-        }
-        getHeadAudio().onended = () => {
-            delete audioQueue[Object.keys(audioQueue)[0]];
-            getHeadAudio().play();
-        }
-    }
-
     function tts(assistantSentence, responseId, sentenceCount) {
         assistantSentence = assistantSentence.split(endSign).join('');
+        const sentenceId = responseId + '-' + sentenceCount;
+        audioQueue[sentenceId] = new Audio();
         switch ($selectVoice.val()) {
             case 'gtts':
-                const sentenceId = responseId + '-' + sentenceCount;
-                audioQueue[sentenceId] = new Audio();
                 $.ajax({
                     type: 'POST',
                     url: '/gtts',
@@ -65,7 +66,6 @@ $(function () {
 
             case 'zundamon':
                 const rate = $selectRate.val() * 1.2;
-                audioQueue[sentenceId] = new Audio();
                 for (const voicevoxApiKey of voicevoxApiKeys) {
                     try {
                         const encodedAssistantSentence = encodeURIComponent(assistantSentence);
