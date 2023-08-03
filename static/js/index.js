@@ -4,6 +4,7 @@ $(function () {
     const $footer = $('#footer');
     const $userInputText = $('#user-input-text');
     const $resetButton = $('#reset-button');
+    const $unsendButton = $('#unsend-button');
     const $selectVoice = $('#select-voice');
     const $selectLanguage = $('#select-language');
     const $selectRate = $('#select-rate');
@@ -31,7 +32,7 @@ $(function () {
 
     function playAudio() {
         const headAudio = audioQueue[Object.keys(audioQueue)[0]];
-        if (!headAudio) {
+        if (!headAudio || !canPlayAudio) {
             return;
         }
         if (headAudio.paused) {
@@ -281,6 +282,7 @@ $(function () {
         for (const audio of Object.values(audioQueue)) {
             audio.pause();
         }
+        canPlayAudio = false;
         audioQueue = {};
     }
 
@@ -331,6 +333,18 @@ $(function () {
             type: 'GET',
             url: '/reset',
         });
+    }
+
+    function unsend() {
+        let $lastVisibleMessage = $messages.children().last();
+        while ($lastVisibleMessage.children().is(':hidden')) {
+            $lastVisibleMessage = $lastVisibleMessage.prev();
+        }
+        $lastVisibleMessage.children().hide();
+        $lastVisibleMessage.prev().children().hide();
+        messageHistory.pop();
+        messageHistory.pop();
+        pauseAssistantAudio();
     }
 
     function setMargin() {
@@ -402,6 +416,10 @@ $(function () {
 
         $resetButton.click(() => {
             resetChat();
+        });
+
+        $unsendButton.click(() => {
+            unsend();
         });
     }
 
