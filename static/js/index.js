@@ -16,7 +16,7 @@ $(function () {
     const endSign = '@e$n#d';
     const systemMessage = {
         'role': 'system',
-        'content': `IMPORTANT: 1. Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. 2. Only if you receive a conversation-ending message like 'goodbye' or 'see you', say "Goodbye! ${endSign} Goodbye! ${endSign}" in user's language.`
+        'content': `IMPORTANT: 1. Due to the use of speech recognition, transcription errors may occur. Please interpret user's intended message accordingly. 2. If the message received from the user is 'goodbye', 'see you', or other similar farewell phrases, please respond with "Goodbye! ${endSign} Goodbye! ${endSign}" in user's language. Otherwise, continue the normal conversation.`
     };
     let recorder;
     let isRecording = false;
