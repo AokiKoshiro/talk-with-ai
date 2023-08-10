@@ -20,15 +20,6 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/api_key", methods=["POST"])
-def api_key():
-    openai_api_key = os.environ["OPENAI_API_KEY"]
-    voicevox_api_keys = os.environ["VOICEVOX_API_KEY"].split(",")
-    # get from this page: https://voicevox.su-shiki.com/su-shikiapis/
-    api_key_dict = {"openai": openai_api_key, "voicevox": voicevox_api_keys}
-    return jsonify(api_key_dict)
-
-
 @app.route("/gtts", methods=["POST"])
 def gtts():
     assitant_sentence = request.form["assistantSentence"]
