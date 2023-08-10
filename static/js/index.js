@@ -1,4 +1,6 @@
 $(function () {
+    const $openaiApiKey = $('#openai-api-key');
+    const $voicevoxApiKey = $('#voicevox-api-key');
     const $submitButton = $('#submit-button');
     const $messages = $('#messages');
     const $footer = $('#footer');
@@ -10,6 +12,13 @@ $(function () {
     const $selectRate = $('#select-rate');
     const $selectModel = $('#select-model');
     const $switchContinuous = $('#switch-continuous');
+    const settingElementsDict = {
+        'select-voice': $selectVoice, 
+        'select-language': $selectLanguage, 
+        'select-rate': $selectRate, 
+        'select-model': $selectModel, 
+        'switch-continuous': $switchContinuous
+    };
 
     const maxChatTrun = 10;
     const recodingTimeLimit = 3600000; // 1 hour
@@ -25,9 +34,8 @@ $(function () {
     let audioChunks = [];
     let messageHistory = [systemMessage];
     let audioQueue = {};
-    let apiKeys = {};
     let openaiApiKey = '';
-    let voicevoxApiKeys = [];
+    let voicevoxApiKey = '';
     
 
     function playAudio() {
@@ -67,16 +75,9 @@ $(function () {
 
             case 'zundamon':
                 const rate = $selectRate.val() * 1.2;
-                for (const voicevoxApiKey of voicevoxApiKeys) {
-                    try {
-                        const encodedAssistantSentence = encodeURIComponent(assistantSentence);
-                        audioQueue[sentenceId] = new Audio(`https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${voicevoxApiKey}&speaker=3&speed=${rate}&text=${encodedAssistantSentence}`);
-                        playAudio();
-                        break;
-                    } catch (error) {
-                        continue;
-                    }
-                }
+                const encodedAssistantSentence = encodeURIComponent(assistantSentence);
+                audioQueue[sentenceId] = new Audio(`https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${voicevoxApiKey}&speaker=3&speed=${rate}&text=${encodedAssistantSentence}`);
+                playAudio();
                 break;
 
             default:
@@ -354,10 +355,61 @@ $(function () {
         $messages.css("margin-bottom", footerHeight + margin + "px");
     }
 
+    function getCookie(name) {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+            const [cookieName, cookieValue] = cookie.split('=');
+            if (cookieName.trim() === name) {
+                return cookieValue;
+            }
+        }
+        return 'null';
+    }
+
+    function setCookie(name, value, days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days*24*60*60*1000));
+        const expires = "expires=" + date.toUTCString();
+        document.cookie = name + "=" + value + ";" + expires + ";path=/";
+    }
+
+    function initApiKeys() {
+        const openaiApiKeyCookie = getCookie('openaiApiKey');
+        const voicevoxApiKeyCookie = getCookie('voicevoxApiKey');
+        if (openaiApiKeyCookie == 'null' || openaiApiKeyCookie == '') {
+            openaiApiKey = prompt('Please enter your OpenAI API key');
+            setCookie('openaiApiKey', openaiApiKey, 365);
+            $openaiApiKey.val(openaiApiKey);
+        } else {
+            openaiApiKey = openaiApiKeyCookie;
+            $openaiApiKey.val(openaiApiKey);
+        }
+        if (voicevoxApiKeyCookie == 'null' || voicevoxApiKeyCookie == '') {
+            $selectVoice.find('option').each(function() {
+                if ($(this).val() === 'zundamon') {
+                    $(this).hide();
+                }
+            });
+        } else {
+            voicevoxApiKey = voicevoxApiKeyCookie;
+            $voicevoxApiKey.val(voicevoxApiKey);
+        }
+    }
+
+    function initSettingCookie() {
+        for (const [name, element] of Object.entries(settingElementsDict)) {
+            const cookie = getCookie(name);
+            if (cookie !== 'null') {
+                element.val(cookie);
+            }
+        }
+    }
+
     function main() {
         setMargin();
-
         initVADRecorder();
+        initApiKeys();
+        initSettingCookie();
 
         let scroll = 0;
         $(window).scroll(() => {
@@ -372,6 +424,34 @@ $(function () {
             scroll = $(this).scrollTop();
         });
 
+        $openaiApiKey.change(() => {
+            openaiApiKey = $openaiApiKey.val();
+            setCookie('openaiApiKey', openaiApiKey, 365);
+        });
+
+        $voicevoxApiKey.change(() => {
+            voicevoxApiKey = $voicevoxApiKey.val();
+            setCookie('voicevoxApiKey', voicevoxApiKey, 365);
+            if (voicevoxApiKey === '') {
+                $selectVoice.find('option').each(function() {
+                    if ($(this).val() === 'zundamon') {
+                        $(this).hide();
+                    }
+                });
+            } else {
+                $selectVoice.find('option').each(function() {
+                    if ($(this).val() === 'zundamon') {
+                        $(this).show();
+                    }
+                });
+            }
+        });
+
+        for (const [name, element] of Object.entries(settingElementsDict)) {
+            element.change(() => {
+                setCookie(name, element.val(), 365);
+            });
+        }
 
         $switchContinuous.on('change', () => {
             if ($switchContinuous.is(':checked')) {
@@ -423,14 +503,5 @@ $(function () {
         });
     }
 
-    $.ajax({
-        type: 'POST',
-        url: '/api_key',
-        success: response => {
-            apiKeys = response;
-            openaiApiKey = apiKeys.openai;
-            voicevoxApiKeys = apiKeys.voicevox;
-            main();
-        }
-    });
+    main();
 });
