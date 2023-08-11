@@ -299,7 +299,7 @@ $(function () {
 
     function stopRecording() {
         isRecording = false;
-        if ($switchContinuous.is(':checked')) {
+        if (getCookie('continuous-recording') === 'true') {
             recorder.pause();
         } else {
             recorder.stop();
@@ -406,7 +406,7 @@ $(function () {
                 element.val(cookie);
             }
         }
-        if (getCookie('continuousRecording') === 'true') {
+        if (getCookie('continuous-recording') === 'true') {
             $switchContinuous.prop('checked', true);
         } else {
             $switchContinuous.prop('checked', false);
@@ -458,9 +458,11 @@ $(function () {
                 setCookie(name, element.val(), 365);
             }
             if ($switchContinuous.is(':checked')) {
-                setCookie('continuousRecording', 'true', 365);
+                initVADRecorder();
+                setCookie('continuous-recording', 'true', 365);
             } else {
-                setCookie('continuousRecording', 'false', 365);
+                initRecorder();
+                setCookie('continuous-recording', 'false', 365);
             }
         });
 
