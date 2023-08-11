@@ -7,6 +7,7 @@ $(function () {
     const $userInputText = $('#user-input-text');
     const $resetButton = $('#reset-button');
     const $unsendButton = $('#unsend-button');
+    const $settingModal = $('#setting-modal');
     const $selectVoice = $('#select-voice');
     const $selectLanguage = $('#select-language');
     const $selectRate = $('#select-rate');
@@ -299,7 +300,7 @@ $(function () {
 
     function stopRecording() {
         isRecording = false;
-        if (getCookie('continuous-recording') === 'true') {
+        if ($switchContinuous.is(':checked')) {
             recorder.pause();
         } else {
             recorder.stop();
@@ -379,15 +380,13 @@ $(function () {
     function initApiKeys() {
         const openaiApiKeyCookie = getCookie('openaiApiKey');
         const voicevoxApiKeyCookie = getCookie('voicevoxApiKey');
-        if (openaiApiKeyCookie == 'null' || openaiApiKeyCookie == '') {
-            openaiApiKey = prompt('Please enter your OpenAI API key');
-            setCookie('openaiApiKey', openaiApiKey, 365);
-            $openaiApiKey.val(openaiApiKey);
+        if (openaiApiKeyCookie === 'null' || openaiApiKeyCookie === '') {
+            $settingButton.click();
         } else {
             openaiApiKey = openaiApiKeyCookie;
             $openaiApiKey.val(openaiApiKey);
         }
-        if (voicevoxApiKeyCookie == 'null' || voicevoxApiKeyCookie == '') {
+        if (voicevoxApiKeyCookie === 'null' || voicevoxApiKeyCookie === '') {
             $selectVoice.find('option').each(function () {
                 if ($(this).val() === 'zundamon') {
                     $(this).hide();
@@ -406,16 +405,18 @@ $(function () {
                 element.val(cookie);
             }
         }
-        if (getCookie('continuous-recording') === 'true') {
+        continuousCookie = getCookie('continuous-recording');
+        if (continuousCookie === 'true' || continuousCookie === 'null') {
             $switchContinuous.prop('checked', true);
+            initVADRecorder();
         } else {
             $switchContinuous.prop('checked', false);
+            initRecorder();
         }
     }
 
     function main() {
         setMargin();
-        initVADRecorder();
         initApiKeys();
         initSettingCookie();
 
