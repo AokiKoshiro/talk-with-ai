@@ -15,9 +15,11 @@ $(function () {
     const $settingButton = $('#setting-button');
     const $saveSettingButton = $('#save-setting-button');
     const settingElementsDict = {
-        'select-voice': $selectVoice, 
-        'select-language': $selectLanguage, 
-        'select-rate': $selectRate, 
+        'openai-api-key': $openaiApiKey,
+        'voicevox-api-key': $voicevoxApiKey,
+        'select-voice': $selectVoice,
+        'select-language': $selectLanguage,
+        'select-rate': $selectRate,
         'select-model': $selectModel
     };
 
@@ -37,7 +39,7 @@ $(function () {
     let audioQueue = {};
     let openaiApiKey = '';
     let voicevoxApiKey = '';
-    
+
 
     function playAudio() {
         const headAudio = audioQueue[Object.keys(audioQueue)[0]];
@@ -52,7 +54,7 @@ $(function () {
             playAudio();
         };
     }
-    
+
     function tts(assistantSentence, responseId, sentenceCount) {
         assistantSentence = assistantSentence.split(endSign).join('');
         const sentenceId = responseId + '-' + sentenceCount;
@@ -369,7 +371,7 @@ $(function () {
 
     function setCookie(name, value, days) {
         const date = new Date();
-        date.setTime(date.getTime() + (days*24*60*60*1000));
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
         const expires = "expires=" + date.toUTCString();
         document.cookie = name + "=" + value + ";" + expires + ";path=/";
     }
@@ -386,7 +388,7 @@ $(function () {
             $openaiApiKey.val(openaiApiKey);
         }
         if (voicevoxApiKeyCookie == 'null' || voicevoxApiKeyCookie == '') {
-            $selectVoice.find('option').each(function() {
+            $selectVoice.find('option').each(function () {
                 if ($(this).val() === 'zundamon') {
                     $(this).hide();
                 }
@@ -403,6 +405,11 @@ $(function () {
             if (cookie !== 'null') {
                 element.val(cookie);
             }
+        }
+        if (getCookie('continuousRecording') === 'true') {
+            $switchContinuous.prop('checked', true);
+        } else {
+            $switchContinuous.prop('checked', false);
         }
     }
 
@@ -428,13 +435,13 @@ $(function () {
         $voicevoxApiKey.change(() => {
             voicevoxApiKey = $voicevoxApiKey.val();
             if (voicevoxApiKey === '') {
-                $selectVoice.find('option').each(function() {
+                $selectVoice.find('option').each(function () {
                     if ($(this).val() === 'zundamon') {
                         $(this).hide();
                     }
                 });
             } else {
-                $selectVoice.find('option').each(function() {
+                $selectVoice.find('option').each(function () {
                     if ($(this).val() === 'zundamon') {
                         $(this).show();
                     }
@@ -443,23 +450,10 @@ $(function () {
         });
 
         $settingButton.click(() => {
-            $openaiApiKey.val(getCookie('openaiApiKey'));
-            $voicevoxApiKey.val(getCookie('voicevoxApiKey'));
-            for (const [name, element] of Object.entries(settingElementsDict)) {
-                element.val(getCookie(name));
-            }
-            if (getCookie('continuousRecording') === 'true') {
-                $switchContinuous.prop('checked', true);
-            } else {
-                $switchContinuous.prop('checked', false);
-            }
+            initSettingCookie();
         });
 
         $saveSettingButton.click(() => {
-            openaiApiKey = $openaiApiKey.val();
-            voicevoxApiKey = $voicevoxApiKey.val();
-            setCookie('openaiApiKey', openaiApiKey, 365);
-            setCookie('voicevoxApiKey', voicevoxApiKey, 365);
             for (const [name, element] of Object.entries(settingElementsDict)) {
                 setCookie(name, element.val(), 365);
             }
@@ -469,7 +463,7 @@ $(function () {
                 setCookie('continuousRecording', 'false', 365);
             }
         });
-        
+
         $submitButton.mousedown(() => {
             const userInput = $userInputText.val();
             if (userInput !== '' || $userInputText.is(':focus')) {
