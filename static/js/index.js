@@ -12,12 +12,13 @@ $(function () {
     const $selectRate = $('#select-rate');
     const $selectModel = $('#select-model');
     const $switchContinuous = $('#switch-continuous');
+    const $settingButton = $('#setting-button');
+    const $saveSettingButton = $('#save-setting-button');
     const settingElementsDict = {
         'select-voice': $selectVoice, 
         'select-language': $selectLanguage, 
         'select-rate': $selectRate, 
-        'select-model': $selectModel, 
-        'switch-continuous': $switchContinuous
+        'select-model': $selectModel
     };
 
     const maxChatTrun = 10;
@@ -424,14 +425,8 @@ $(function () {
             scroll = $(this).scrollTop();
         });
 
-        $openaiApiKey.change(() => {
-            openaiApiKey = $openaiApiKey.val();
-            setCookie('openaiApiKey', openaiApiKey, 365);
-        });
-
         $voicevoxApiKey.change(() => {
             voicevoxApiKey = $voicevoxApiKey.val();
-            setCookie('voicevoxApiKey', voicevoxApiKey, 365);
             if (voicevoxApiKey === '') {
                 $selectVoice.find('option').each(function() {
                     if ($(this).val() === 'zundamon') {
@@ -447,20 +442,34 @@ $(function () {
             }
         });
 
-        for (const [name, element] of Object.entries(settingElementsDict)) {
-            element.change(() => {
-                setCookie(name, element.val(), 365);
-            });
-        }
-
-        $switchContinuous.on('change', () => {
-            if ($switchContinuous.is(':checked')) {
-                initVADRecorder();
+        $settingButton.click(() => {
+            $openaiApiKey.val(getCookie('openaiApiKey'));
+            $voicevoxApiKey.val(getCookie('voicevoxApiKey'));
+            for (const [name, element] of Object.entries(settingElementsDict)) {
+                element.val(getCookie(name));
+            }
+            if (getCookie('continuousRecording') === 'true') {
+                $switchContinuous.prop('checked', true);
             } else {
-                initRecorder();
+                $switchContinuous.prop('checked', false);
             }
         });
 
+        $saveSettingButton.click(() => {
+            openaiApiKey = $openaiApiKey.val();
+            voicevoxApiKey = $voicevoxApiKey.val();
+            setCookie('openaiApiKey', openaiApiKey, 365);
+            setCookie('voicevoxApiKey', voicevoxApiKey, 365);
+            for (const [name, element] of Object.entries(settingElementsDict)) {
+                setCookie(name, element.val(), 365);
+            }
+            if ($switchContinuous.is(':checked')) {
+                setCookie('continuousRecording', 'true', 365);
+            } else {
+                setCookie('continuousRecording', 'false', 365);
+            }
+        });
+        
         $submitButton.mousedown(() => {
             const userInput = $userInputText.val();
             if (userInput !== '' || $userInputText.is(':focus')) {
