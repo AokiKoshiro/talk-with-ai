@@ -378,10 +378,13 @@ $(function () {
     }
 
     function initApiKeys() {
-        const openaiApiKeyCookie = getCookie('openaiApiKey');
-        const voicevoxApiKeyCookie = getCookie('voicevoxApiKey');
+        const openaiApiKeyCookie = getCookie('openai-api-key');
+        const voicevoxApiKeyCookie = getCookie('voicevox-api-key');
         if (openaiApiKeyCookie === 'null' || openaiApiKeyCookie === '') {
-            $settingButton.click();
+            $settingModal.modal('show');
+            setTimeout(function () {
+                $openaiApiKey.focus();
+            }, 500);
         } else {
             openaiApiKey = openaiApiKeyCookie;
             $openaiApiKey.val(openaiApiKey);
