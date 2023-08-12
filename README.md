@@ -7,4 +7,6 @@ This is an application for talking with AI. The input voice is converted into te
 You can try this app from [here](https://talk-with-ai.onrender.com/).
 
 ## Screenshot
-![screenshot](static/image/screenshot.png)
+![screenshot-chat](./static/image/screenshot_chat.png)
+![screenshot-architecture](./static/image/screenshot_architecture.png)
+![screenshot-settings](./static/image/screenshot_settings.png)
