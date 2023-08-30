@@ -419,6 +419,7 @@ $(function () {
     }
 
     function main() {
+        resetChat();
         setMargin();
         initApiKeys();
         initSettingCookie();
