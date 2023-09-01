@@ -511,6 +511,10 @@ $(function () {
         $unsendButton.click(() => {
             unsend();
         });
+
+        $('button').mouseup(() => {
+            $('button').blur();
+        });
     }
 
     main();
